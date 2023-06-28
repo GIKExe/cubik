@@ -1,63 +1,89 @@
 
 import os
 import re
-import core
+from time import sleep
+
 import pygame
+from datetime import datetime
 
-import importlib
+# import core
+# import importlib
 
+_print = print
 
-def import_module(path, **kwargs):
-  mod = importlib.import_module(path)
-  for name in kwargs:
-    setattr(mod, name, kwargs[name])
-  if hasattr(mod, 'init') and callable(mod.init):
-    mod.init()
-  return mod
+class Print:
+	def __init__(self, name=None):
+		self.name = name
+
+	def __call__(self, *args, **kwargs):
+		text = datetime.now().strftime("[%H:%M:%S]")
+		if self.name is not None:
+			text += f' {self.name}:'
+		return _print(text, *args, **kwargs)
+
+# def import_module(path, **kwargs):
+#   mod = importlib.import_module(path)
+#   for name in kwargs:
+#     setattr(mod, name, kwargs[name])
+#   if hasattr(mod, 'init') and callable(mod.init):
+#     mod.init()
+#   return mod
 
 mods = {}
 
-def mod_init(name):
-  path = 'mods/'+name
+class Register:
+	def __init__(self, mod):
+		self.mod = mod
 
-  if not os.path.isdir(path): return
-  if not os.path.isfile(path+"/__init__.py"): return
+	def block(self, cls):
+		name = re.findall(r"\w+(?='>)", str(cls))[0].lower()
 
-  data = {'images': {}, 'blocks': {}}
-  mods[name] = data
+		if name in self.mod.images:
+			cls.image = self.mod.images[name]
+		else:
+			cls.image = mods['core'].images['error']
 
-  if os.path.isdir(path+'/images'):
-    for image_name in os.listdir(path+'/images'):
-      if not image_name.endswith('.png'): continue
-      image = pygame.image.load(path+'/images/'+image_name)
-      image_name = image_name[:-4]
-      data['images'][image_name] = image
-
-  register = Register(name)
-
-  mod = import_module("mods."+name, mods=mods, register=register)
+		app.camera.block_table[name] = cls
+		app.map.table[name] = cls
+		self.mod.blocks[name] = cls
+		self.mod.print(f'регистрирую блок: {name}')
 
 
-def init():
-  global Register
+class Mod:
+	alive = False
 
-  class Register:
-    def __init__(self, name):
-      self.name = name
+	def __init__(self, name):
+		path = 'mods/'+name
 
-    def block(self, cls):
-      id = re.findall(r"\w+(?='>)", str(cls))[0].lower()
+		if not os.path.isdir(path): return
+		if not os.path.isfile(path+"/main.py"): return
 
-      if id in mods[self.name]['images']:
-        cls.image = mods[self.name]['images'][id]
-      else:
-        cls.image = mods['core']['images']['error']
+		with open(path+'/main.py', 'r', encoding='utf-8') as file:
+			self.text = file.read()
 
-      mods[self.name]['blocks'][id] = cls
-      camera.block_table[id] = cls
-      # print(f'мод {self.name} регистрирует блок: {id}')
+		self.name = name
+		self.register = Register(self)
+		self.print = Print(name)
+		self.images = {}
+		self.blocks = {}
+
+		if os.path.isdir(path+'/images'):
+			for name in os.listdir(path+'/images'):
+				if not name.endswith('.png'): continue
+				image = pygame.image.load(path+'/images/'+name)
+				name = name[:-4]
+				self.images[name] = image
+
+		self.alive = True
+
+	def __call__(self, **kwargs):
+		if not self.alive: return
+		kwargs['mod'] = self
+		kwargs['print'] = self.print
+		exec(self.text, kwargs)
+		mods[self.name] = self
 
 
-  # нужна ли проверка на мод core?
-  for name in os.listdir('mods'):
-    mod_init(name)
+for name in os.listdir('mods'):
+	mod = Mod(name)
+	mod()
