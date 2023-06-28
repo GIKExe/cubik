@@ -1,0 +1,11 @@
+{
+  "blocks": [
+    "block",
+    "killer",
+    "jump",
+    "speed",
+    "home"
+  ],
+
+  "size": [29, 5]
+}
