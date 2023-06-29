@@ -74,49 +74,25 @@ class DebugInfo:
 
 
 class Player:
-	def __init__(self, app, x, y, speed, gravity, jumpPower):
+	def __init__(self, app, x, y, speed, gravity, jump_power):
 		self.app = app
 		self.rect = Rect(x,y,16,16)
 		self.moving = [0,0]
-		self.gravity = gravity
-		self.speed = speed
-		self.isJump = False
-		self.jumpPower = jumpPower
-		self.jumpCount = self.jumpPower
-		self.onGround = True
-		self.spawnPos = (x, y)
+		# self.gravity = gravity
+		
+		self.jump_power = jump_power
+		self.spawn_pos = (x, y)
 		self.effects = []
 
+		self.speed = speed
+		self.spx = 0
+		self.spy = 0
+		self.is_jump = False
+
 	def respawn(self):
-		self.rect.topleft = self.spawnPos
+		self.rect.topleft = self.spawn_pos
 
 	def draw(self, camera, offset):
-		# data = self.app.map.get_neighbors(self.rect.topleft)
-		for spos in self.app.map.sposs:
-			sx, sy = spos
-			draw.rect(
-				camera.win, 
-				(200,0,200),
-				(
-					(self.rect.x//16+sx)*16+offset[0],
-					(self.rect.y//16+sy)*16+offset[1],
-					16, 16
-				),
-				1
-			)
-
-		# draw.rect(
-		# 	camera.win, 
-		# 	(200,0,200),
-		# 	(
-		# 		(self.rect.x//16)*16+offset[0],
-		# 		(self.rect.y//16+1)*16+offset[1],
-		# 		self.rect.width,
-		# 		self.rect.height
-		# 	),
-		# 	2
-		# )
-
 		draw.rect(
 			camera.win, 
 			(200,200,200),
@@ -128,53 +104,51 @@ class Player:
 			)
 		)
 
-	def collision(self, cam, type):
-		c = cam.collide(self)
-		if type == "y":
-			self.onGround = False
-		if c:
-			if hasattr(c,"on_collide"):
-				c.on_collide(self)
-
-			if type == "x":
-				if self.moving[0] > 0:
-					self.rect.right = c.rect.left
-				elif self.moving[0] < 0:
-					self.rect.left = c.rect.right
-
-			if type == "y":
-				if self.moving[1] > 0:
-					self.rect.bottom = c.rect.top
-					self.onGround = True
-				elif self.moving[1] < 0:
-					self.rect.top = c.rect.bottom
-
-			elif type == "g":
-				if self.gravity > 0:
-					self.rect.bottom = c.rect.top
-					self.onGround = True
-				elif self.gravity < 0:
-					self.rect.top = c.rect.bottom
+	def get_collided(self):
+		collided = []
+		for block in self.app.map.get_neighbors(self.rect.topleft).values():
+			if self.rect.colliderect(block.rect):
+				collided.append(block)
+		return collided
 
 	def tick(self, camera):
-		self.rect.x += self.moving[0] * self.speed
-		self.collision(camera,"x")
+		# влияние гравитации на скорость
+		if self.is_jump and (self.spy >= -0.5):
+				self.is_jump = False
 
-		self.rect.y += self.moving[1] * self.speed
-		self.collision(camera,"y")
-		
-		self.rect.y += self.gravity
-		self.collision(camera,"g")
-		
-		if self.isJump:
-			if self.jumpCount > 0:
-				self.rect.y -= self.jumpCount * 0.225
-				self.collision(camera, "g")
-				self.jumpCount -= 1
-			else:
-				self.isJump = False
-				self.jumpCount = self.jumpPower
+		if self.spy < 10:
+			self.spy += 1 / (abs(self.spy)+1) ** 1.5
 
+		# проверка прыжка
+		key = pygame.key.get_pressed()
+		if key[K_SPACE]:
+			self.rect.y += 2
+			collided = self.get_collided()
+			if len(collided) > 0:
+				self.spy = self.jump_power
+			self.rect.y -= 2
+
+		self.rect.y += self.spy
+		#-------------------------------------------
+		collided = self.get_collided()
+		for block in collided:
+			block.on_collide(self)
+		for block in collided:
+			if self.spy > 0:
+				self.rect.bottom = block.rect.top;
+				self.spy = 0
+			elif self.spy < 0:
+				self.rect.top = block.rect.bottom
+				self.spy = 0
+		#===========================================
+		self.spx = (key[K_d] - key[K_a]) * self.speed
+		self.rect.x += self.spx
+		#-------------------------------------------
+		collided = self.get_collided()
+		for block in collided:
+			if self.spx > 0: self.rect.right = block.rect.left
+			elif self.spx < 0: self.rect.left = block.rect.right
+		#===========================================
 
 class Map:
 	def __init__(self, app, diagonally=True):
@@ -182,9 +156,18 @@ class Map:
 		self.table = {}
 		self.data = {}
 		if diagonally:
-			self.sposs = [(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1),(-1,0)]
+			self.sposs = [(0,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1),(-1,0)]
 		else:
-			self.sposs = [(0,1),(1,0),(0,-1),(-1,0)]
+			self.sposs = [(0,0),(0,1),(1,0),(0,-1),(-1,0)]
+
+	def reg(self, name, cls):
+		self.table[name] = cls
+
+	def add_block(self, name, pos):
+		if name in self.table:
+			self.data[pos] = self.table[name](*pos)
+		else:
+			self.data[pos] = self.table['error'](*pos)
 
 	def get_neighbors(self, pos):
 		x, y = pos
@@ -217,9 +200,8 @@ class Camera:
 		self.block_table = {}
 
 	def collide(self, a):
-		for b in self.objs:
-			if a != b and b.rect != None \
-				and a.rect.colliderect(b.rect):
+		for b in list(self.app.map.data.values()):
+			if a.rect.colliderect(b.rect):
 				return b
 		return None
 
@@ -235,6 +217,7 @@ class Camera:
 	def draw(self):
 		self.win.fill(self.background)
 
+		# отрисовка блоков из карты
 		for obj in list(self.app.map.data.values()):
 			if ((obj.rect.right+self.offset[0] > 0) and \
 					(obj.rect.x+self.offset[0] < self.win.get_width()) and \

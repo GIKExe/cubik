@@ -22,6 +22,9 @@ class Block:
 			)
 		)
 
+	def on_collide(self, player):
+		pass
+
 
 class Killer(Block):
 	def on_collide(self, player):
@@ -31,11 +34,11 @@ class Killer(Block):
 class Jump(Block):
 	def on_collide(self, player):
 		if 'усиленный прыжок' in player.effects: return
-		player.jumpPower = 64
+		player.jump_power = -6
 		player.effects.append('усиленный прыжок')
 		def reset():
-			sleep(1)
-			player.jumpPower = 32
+			sleep(2)
+			player.jump_power = -4
 			player.effects.pop(player.effects.index('усиленный прыжок'))
 		Thread(target=reset, daemon=True).start()
 
@@ -54,7 +57,7 @@ class Speed(Block):
 
 class Home(Block):
 	def on_collide(self, player):
-		player.spawnPos = (self.rect.x, self.rect.y+1)
+		player.spawn_pos = (self.rect.x, self.rect.y-16)
 
 
 class Error(Block):

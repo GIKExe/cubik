@@ -30,12 +30,13 @@ app.map = Map(app)
 app.camera = Camera(app, smooth=0.05)
 
 # player = Player(0,-16, 4, 3, 32)
-app.player = Player(app, 0,-16, 2, 1, 32)
+app.player = Player(app, 0,-16, 2, 1, -4)
 		
 app.debug = DebugInfo(lambda: \
 	f"Позиция: {app.player.rect.x},{app.player.rect.y}\n" \
 	f"Смещение: {round(app.camera.offset[0])},{round(app.camera.offset[1])}\n" \
-	f"Эффекты: {app.player.effects}"
+	f"Эффекты: {app.player.effects}\n" \
+	f"Спавн: {app.player.spawn_pos}"
 )
 
 app.camera += app.player
@@ -85,15 +86,12 @@ while running:
 			running = False
 
 		elif event.type == KEYDOWN:
-			if event.key == K_SPACE:
-				if app.player.onGround:
-					app.player.isJump = True
+			# if event.key == K_SPACE:
+			# 	if app.player.onGround:
+			# 		app.player.isJump = True
 
-			elif event.key == K_F3:
+			if event.key == K_F3:
 				app.debug.show = not app.debug.show
-				
-		keys = pygame.key.get_pressed()
-		app.player.moving[0] = keys[K_d] - keys[K_a]
 
 	app.camera.draw()
 

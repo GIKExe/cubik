@@ -43,8 +43,9 @@ class Register:
 		else:
 			cls.image = mods['core'].images['error']
 
-		app.camera.block_table[name] = cls
-		app.map.table[name] = cls
+		# app.camera.block_table[name] = cls
+		# app.map.table[name] = cls
+		app.map.reg(name, cls)
 		self.mod.blocks[name] = cls
 		self.mod.print(f'регистрирую блок: {name}')
 
@@ -78,6 +79,7 @@ class Mod:
 
 	def __call__(self, **kwargs):
 		if not self.alive: return
+		kwargs['app'] = app
 		kwargs['mod'] = self
 		kwargs['print'] = self.print
 		exec(self.text, kwargs)
