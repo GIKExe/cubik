@@ -25,12 +25,12 @@ pygame.init()
 
 app = ObjSpace()
 app.win = pygame.display.set_mode((512,512))
-pygame.display.set_caption("Cubic")
+pygame.display.set_caption("Cubik by IvanExe")
 app.map = Map(app)
 app.camera = Camera(app, smooth=0.05)
 
 # player = Player(0,-16, 4, 3, 32)
-app.player = Player(app, 0,-16, 2, 1, -4)
+app.player = Player(app, (0, -16), 3, None, -4)
 		
 app.debug = DebugInfo(lambda: \
 	f"Позиция: {app.player.rect.x},{app.player.rect.y}\n" \
@@ -93,6 +93,9 @@ while running:
 			if event.key == K_F3:
 				app.debug.show = not app.debug.show
 
+			elif event.key == K_ESCAPE:
+				running = False
+
 	app.camera.draw()
 
 	if app.player.rect.y > 512:
@@ -102,5 +105,5 @@ while running:
 
 	display.flip()
 	clock.tick(60)
-	
+
 pygame.quit()

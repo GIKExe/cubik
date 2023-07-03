@@ -3,14 +3,15 @@ import threading
 
 
 fonts = []
-def get_font(name,size):
-  global fonts
-  for i in fonts:
-    if i[0] == name and i[1] == size:
-      return i[3]
-  f = pygame.font.SysFont(name,size)
-  fonts.append([name,size,f])
-  return f
+def get_font(name, size):
+  # global fonts
+  # for i in fonts:
+  #   if i[0] == name and i[1] == size:
+  #     return i[3]
+  # f = pygame.font.SysFont(name,size)
+  # fonts.append([name,size,f])
+  # return f
+  return pygame.font.SysFont(name, size)
 
 class PriorityLimitException(Exception):
 	"Priority limits from -1024 to 1024"

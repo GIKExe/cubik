@@ -1,38 +1,38 @@
 
-class Rect:
-	def __init__(self, pos, size):
-		self.pos = list(pos)
-		self.size = list(size)
+# class Rect:
+# 	def __init__(self, pos, size):
+# 		self.pos = list(pos)
+# 		self.size = list(size)
 
-	@property
-	def left(self): return self.pos[0]
-	@left.setter
-	def left(self, value): self.pos[0] = value
+# 	@property
+# 	def left(self): return self.pos[0]
+# 	@left.setter
+# 	def left(self, value): self.pos[0] = value
 
-	@property
-	def top(self): return self.pos[1]
-	@top.setter
-	def top(self, value): self.pos[1] = value
+# 	@property
+# 	def top(self): return self.pos[1]
+# 	@top.setter
+# 	def top(self, value): self.pos[1] = value
 
-	@property
-	def width(self): return self.size[0]
-	@width.setter
-	def width(self, value): self.size[0] = value
+# 	@property
+# 	def width(self): return self.size[0]
+# 	@width.setter
+# 	def width(self, value): self.size[0] = value
 
-	@property
-	def height(self): return self.size[1]
-	@height.setter
-	def height(self, value): self.size[1] = value
+# 	@property
+# 	def height(self): return self.size[1]
+# 	@height.setter
+# 	def height(self, value): self.size[1] = value
 
-	@property
-	def right(self): return self.left + self.width
-	@right.setter
-	def right(self, value): self.left = value - self.width
+# 	@property
+# 	def right(self): return self.left + self.width
+# 	@right.setter
+# 	def right(self, value): self.left = value - self.width
 
-	@property
-	def bottom(self): return self.top + self.height
-	@bottom.setter
-	def bottom(self, value): self.top = value - self.height
+# 	@property
+# 	def bottom(self): return self.top + self.height
+# 	@bottom.setter
+# 	def bottom(self, value): self.top = value - self.height
 
 
 import pygame
@@ -74,14 +74,14 @@ class DebugInfo:
 
 
 class Player:
-	def __init__(self, app, x, y, speed, gravity, jump_power):
+	def __init__(self, app, pos, speed, gravity, jump_power):
 		self.app = app
-		self.rect = Rect(x,y,16,16)
+		self.rect = Rect(*pos,16,16)
 		self.moving = [0,0]
 		# self.gravity = gravity
 		
 		self.jump_power = jump_power
-		self.spawn_pos = (x, y)
+		self.spawn_pos = tuple(pos)
 		self.effects = []
 
 		self.speed = speed
@@ -90,6 +90,8 @@ class Player:
 		self.is_jump = False
 
 	def respawn(self):
+		self.spx = 0
+		self.spy = 0
 		self.rect.topleft = self.spawn_pos
 
 	def draw(self, camera, offset):
@@ -233,6 +235,10 @@ class Camera:
 					(obj.rect.y+self.offset[1] < self.win.get_height())):
 				obj.draw(self, self.offset)
 			obj.tick(self)
+
+		draw.rect(
+			self.win, (200,0,200), (self.offset[0], self.offset[1], 16, 16), 2
+		)
 
 	def offset_lerp(self, pos):
 		width, height = self.win.get_size()
