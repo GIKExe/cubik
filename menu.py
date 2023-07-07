@@ -1,17 +1,11 @@
+
+# глобальные библиотеки
 import pygame
 from pygame import display, draw, Rect, Surface
 from pygame.locals import *
 
-
-class ObjSpace(dict):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-	def __getattr__(self, name):
-		if name in self: return self[name]
-
-	def __setattr__(self, name, value):
-		self[name] = value
+# локальные библиотеки
+from utils import *
 
 
 class Page(list):
@@ -157,7 +151,9 @@ if __name__ == '__main__':
 	def run_game():
 		with open('main.py', 'r', encoding='utf-8') as file:
 			text = file.read()
+		wh = app.win.get_size()
 		exec(text, {})
+		# app.win = display.set_mode(wh, RESIZABLE)
 		app.win = display.set_mode((800, 450), RESIZABLE)
 
 	page = Page(app, 'local')

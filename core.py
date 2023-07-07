@@ -34,15 +34,16 @@
 # 	@bottom.setter
 # 	def bottom(self, value): self.top = value - self.height
 
+import time
+from threading import Thread
 
+# глобальные библиотеки
 import pygame
 from pygame import draw, display, Rect
 from pygame.locals import *
 
-import utils
-import time
-
-from threading import Thread
+# локальные библиотеки
+from utils import *
 
 
 class Base:
@@ -55,7 +56,7 @@ class DebugInfo:
 	def __init__(self, info):
 		self.rect = None
 		self.show = False
-		self.font = utils.get_font("arial", 15)
+		self.font = font("Consolas", 16)
 		self.info = info
 
 	def tick(*args, **kwargs):
@@ -64,10 +65,10 @@ class DebugInfo:
 	def draw(self, camera, offset):
 		if self.show:
 			lines = self.info().split("\n")
-			y = 0
+			y = 5
 			for text in lines:
 				surf = self.font.render(text, True, (250,250,250))
-				camera.win.blit(surf,(0,y))
+				camera.win.blit(surf,(5,y))
 				y += surf.get_height()
 			draw.line(camera.win,(250,0,0),(256,0),(256,512))
 			draw.line(camera.win,(250,0,0),(512,256),(0,256))
@@ -82,12 +83,13 @@ class Player:
 		
 		self.jump_power = jump_power
 		self.spawn_pos = tuple(pos)
-		self.effects = []
+		self.effects = {}
 
 		self.speed = speed
 		self.spx = 0
 		self.spy = 0
 		self.is_jump = False
+		self.on_ground = False
 
 	def respawn(self):
 		self.spx = 0
@@ -116,29 +118,40 @@ class Player:
 	def tick(self, camera):
 		# влияние гравитации на скорость
 		if self.is_jump and (self.spy >= -0.5):
-				self.is_jump = False
+			self.is_jump = False
 
-		if self.spy < 10:
-			self.spy += 1 / (abs(self.spy)+1) ** 1.5
-
-		# проверка прыжка
 		key = pygame.key.get_pressed()
-		if key[K_SPACE]:
-			self.rect.y += 2
-			collided = self.get_collided()
-			if len(collided) > 0:
-				self.spy = self.jump_power
-			self.rect.y -= 2
+		if 'полёт' in self.effects:
+			self.spy = (key[K_s] - key[K_w]) * self.speed
+		else:
+			if self.spy < 10:
+				self.spy += 1 / (abs(self.spy)+1) ** 1.7
+
+			# if key[K_SPACE]:
+			# 	self.rect.y += 2
+			# 	collided = self.get_collided()
+			# 	if len(collided) > 0:
+			# 		self.spy = self.jump_power
+			# 	self.rect.y -= 2
+
+			if key[K_SPACE] and self.on_ground:
+				self.rect.y += 2
+				collided = self.get_collided()
+				if len(collided) > 0:
+					self.spy = self.jump_power
+				self.rect.y -= 2
 
 		self.rect.y += self.spy
 		#-------------------------------------------
 		collided = self.get_collided()
+		self.on_ground = False
 		for block in collided:
 			block.on_collide(self)
 		for block in collided:
 			if self.spy > 0:
-				self.rect.bottom = block.rect.top;
+				self.rect.bottom = block.rect.top
 				self.spy = 0
+				self.on_ground = True
 			elif self.spy < 0:
 				self.rect.top = block.rect.bottom
 				self.spy = 0
@@ -148,9 +161,12 @@ class Player:
 		#-------------------------------------------
 		collided = self.get_collided()
 		for block in collided:
+			block.on_collide(self)
+		for block in collided:
 			if self.spx > 0: self.rect.right = block.rect.left
 			elif self.spx < 0: self.rect.left = block.rect.right
 		#===========================================
+
 
 class Map:
 	def __init__(self, app, diagonally=True):

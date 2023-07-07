@@ -1,5 +1,7 @@
 from time import sleep
 from threading import Thread
+
+# глобальные библиотеки
 from pygame import Rect
 
 
@@ -15,11 +17,7 @@ class Block:
 	def draw(self, camera, offset):
 		if self.image is None: return
 		camera.win.blit(
-			self.image,
-			(
-				self.rect.x+offset[0],
-				self.rect.y+offset[1]
-			)
+			self.image, (self.rect.x+offset[0], self.rect.y+offset[1])
 		)
 
 	def on_collide(self, player):
@@ -29,29 +27,33 @@ class Block:
 class Killer(Block):
 	def on_collide(self, player):
 		player.respawn()
-
+		player.effects = {}
 
 class Jump(Block):
 	def on_collide(self, player):
-		if 'усиленный прыжок' in player.effects: return
+		name = 'усиленный прыжок'
+		if name in player.effects: return
 		player.jump_power = -6
-		player.effects.append('усиленный прыжок')
+		player.effects[name] = 1
 		def reset():
 			sleep(2)
 			player.jump_power = -4
-			player.effects.pop(player.effects.index('усиленный прыжок'))
+			if name in player.effects:
+				del player.effects[name]
 		Thread(target=reset, daemon=True).start()
 
 
 class Speed(Block):
 	def on_collide(self, player):
-		if 'ускорение' in player.effects: return
+		name = 'ускорение'
+		if name in player.effects: return
 		player.speed = 16
-		player.effects.append('ускорение')
+		player.effects[name] = 1
 		def reset():
 			sleep(1)
 			player.speed = 4
-			player.effects.pop(player.effects.index('ускорение'))
+			if name in player.effects:
+				del player.effects[name]
 		Thread(target=reset, daemon=True).start()
 
 
@@ -64,9 +66,22 @@ class Error(Block):
 	pass
 
 
+class Fly(Block):
+	def on_collide(self, player):
+		name = 'полёт'
+		if name in player.effects: return
+		player.effects[name] = 1
+		def reset():
+			sleep(60)
+			if name in player.effects:
+				del player.effects['полёт']
+		Thread(target=reset, daemon=True).start()
+
+
 mod.register.block(Block)
 mod.register.block(Killer)
 mod.register.block(Jump)
 mod.register.block(Speed)
 mod.register.block(Home)
 mod.register.block(Error)
+mod.register.block(Fly)

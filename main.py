@@ -1,25 +1,16 @@
-import pygame
-from pygame import draw, display
-from pygame.locals import *
-
 import random
 import json
 import os
 
+# глобальные библиотеки
+import pygame
+from pygame import draw, display
+from pygame.locals import *
+
+# локальные библиотеки
 import core
 from core import Camera, Player, DebugInfo, Map
-
-from importlib import import_module
-
-class ObjSpace(dict):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
-
-	def __getattr__(self, name):
-		if name in self: return self[name]
-
-	def __setattr__(self, name, value):
-		self[name] = value
+from utils import *
 
 pygame.init()
 
@@ -35,7 +26,7 @@ app.player = Player(app, (0, -16), 3, None, -4)
 app.debug = DebugInfo(lambda: \
 	f"Позиция: {app.player.rect.x},{app.player.rect.y}\n" \
 	f"Смещение: {round(app.camera.offset[0])},{round(app.camera.offset[1])}\n" \
-	f"Эффекты: {app.player.effects}\n" \
+	f"Эффекты: {tuple(app.player.effects.keys())}\n" \
 	f"Спавн: {app.player.spawn_pos}"
 )
 
@@ -86,10 +77,6 @@ while running:
 			running = False
 
 		elif event.type == KEYDOWN:
-			# if event.key == K_SPACE:
-			# 	if app.player.onGround:
-			# 		app.player.isJump = True
-
 			if event.key == K_F3:
 				app.debug.show = not app.debug.show
 

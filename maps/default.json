@@ -4,7 +4,8 @@
     "killer",
     "jump",
     "speed",
-    "home"
+    "home",
+    "fly"
   ],
 
   "size": [29, 11]

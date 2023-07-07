@@ -3,33 +3,15 @@ import os
 import re
 from time import sleep
 
+# глобальные библиотеки
 import pygame
-from datetime import datetime
 
-# import core
-# import importlib
+# локальные библиотеки
+from utils import *
 
-_print = print
-
-class Print:
-	def __init__(self, name=None):
-		self.name = name
-
-	def __call__(self, *args, **kwargs):
-		text = datetime.now().strftime("[%H:%M:%S]")
-		if self.name is not None:
-			text += f' {self.name}:'
-		return _print(text, *args, **kwargs)
-
-# def import_module(path, **kwargs):
-#   mod = importlib.import_module(path)
-#   for name in kwargs:
-#     setattr(mod, name, kwargs[name])
-#   if hasattr(mod, 'init') and callable(mod.init):
-#     mod.init()
-#   return mod
 
 mods = {}
+app.mods = mods
 
 class Register:
 	def __init__(self, mod):
@@ -43,8 +25,6 @@ class Register:
 		else:
 			cls.image = mods['core'].images['error']
 
-		# app.camera.block_table[name] = cls
-		# app.map.table[name] = cls
 		app.map.reg(name, cls)
 		self.mod.blocks[name] = cls
 		self.mod.print(f'регистрирую блок: {name}')
