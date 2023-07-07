@@ -15,27 +15,14 @@ class Widget:
 	app = None
 	page = None
 	font = font('Consolas', 17)
-	triger_active = False
-	triger_generate_image = ['text', 'background', 'color']
-
-	def __setattr__(self, name, value):
-		super().__setattr__(name, value)
-		if name in self.triger_generate_image and self.triger_active:
-			self.generate_image()
-
-	def tick(*args, **kwargs): pass
-	def draw(*args, **kwargs): pass
-	def generate_image(*args, **kwargs): pass
 
 
 class Label(Widget):
-	def __init__(self, text, color=(200,200,200), background=(90,90,90)):
+	def __init__(self, text, color=(200,200,200), background=None):
 		self.text = text
 		self.color = color
 		self.background = background
-
 		self.generate_image()
-		self.triger_active = True
 
 	def generate_image(self):
 		image = self.font.render(self.text, True, self.color)
@@ -46,22 +33,24 @@ class Label(Widget):
 		self.image.blit(image, (5,7))
 		self.rect = self.image.get_rect()
 
-	def draw(self):
+	def update(self):
 		self.app.win.blit(self.image, self.rect)
+		self.generate_image()
 
 
 class Button(Widget):
-	def __init__(self, text, color=(200,200,200), background=(90,90,90), func=None):
+	def __init__(self, text, color=(200,200,200), background=(90,90,90), func=None, center=16):
+		self.center = center
 		self.text = text
 		self.color = color
 		self.background = background
 		self.func = func
-
 		self.generate_image()
-		self.triger_active = True
 
 	def generate_image(self):
-		image = self.font.render(self.text, True, self.color)
+		w = self.center - len(self.text)
+		text = (' '*(w//2)) + self.text + (' '*(w//2+w%2))
+		image = self.font.render(text, True, self.color)
 		w,h = image.get_size()
 		self.image = Surface((w+10, h+10), SRCALPHA)
 		if self.background:
@@ -69,12 +58,15 @@ class Button(Widget):
 		self.image.blit(image, (5,7))
 		self.rect = self.image.get_rect()
 
-	def tick(self):
-		if self.func is None: return
-		self.func()
+	def update(self):
+		if self.func is not None:
+			for event in self.app.events:
+				if event.type == MOUSEBUTTONDOWN:
+					if self.rect.collidepoint(event.pos):
+						self.func()
 
-	def draw(self):
 		self.app.win.blit(self.image, self.rect)
+		self.generate_image()
 
 
 class Input(Widget):
@@ -99,8 +91,6 @@ class Input(Widget):
 		""".replace('\n', '').replace('\t', '')
 
 		self.generate_image()
-		self.triger_active = True
-		self.triger_generate_image += ['size', 'comment', 'comment_color']
 
 	def generate_image(self):
 		if self.text:
@@ -114,17 +104,23 @@ class Input(Widget):
 			self.image.fill(self.background)
 		self.image.blit(image, (5,7))
 		self.rect = self.image.get_rect()
-		draw.rect(self.image, (0,0,0), (0,0,w+10,h+10), 1)
+		draw.rect(self.image, (200,0,0) if self.active else (0,0,0), (0,0,w+10,h+10), 1)
 
-	def tick(self, event):
-		if event.key == K_BACKSPACE:
-			if len(self.text) > 0:
-				self.text = self.text[:-1]
-		elif (len(self.text) < self.size) and (event.unicode in self.chars): 
-			self.text += event.unicode
+	def update(self):
+		for event in self.app.events:
+			if event.type == MOUSEBUTTONDOWN:
+				self.active = self.rect.collidepoint(event.pos)
 
-	def draw(self):
+			elif event.type == KEYDOWN and self.active:
+				if event.key == K_BACKSPACE:
+					if len(self.text) > 0:
+						self.text = self.text[:-1]
+
+				elif (len(self.text) < self.size) and (event.unicode in self.chars): 
+					self.text += event.unicode
+
 		self.app.win.blit(self.image, self.rect)
+		self.generate_image()
 
 
 class Line(list, Widget):
@@ -133,33 +129,33 @@ class Line(list, Widget):
 		self.rect = Rect(0,0,0,0)
 
 	def __iadd__(self, obj):
-		self.append(obj)
-		obj.app = self.app
-		obj.page = self.page
+		if type(obj) == Line:
+			raise Exception('не, фигню не пиши')
 		if obj.rect.height > self.rect.height:
 			self.rect.height = obj.rect.height
 		self.rect.width += obj.rect.width + self.indent
+		self.append(obj)
+		obj.app = self.app
+		obj.page = self.page
 		return self
 
-	def __isub__(self, obj):
-		if obj in self:
-			self.pop(self.index(obj))
-			self.rect.width -= obj.rect.width + self.indent
-		return self
-
-	def draw(self):
+	def update(self):
 		x = self.rect.x
 		for obj in self:
 			obj.rect.topleft = (x, self.rect.y)
-			obj.draw()
+			obj.update()
 			x += obj.rect.width
 			x += self.indent
 
 
 class Page(list):
-	def __init__(self, app, name, indent=10):
-		self.app = app
+	def __init__(self, obj, name, indent=10):
 		self.name = name
+		if type(obj) == Pages:
+			self.app = obj.app
+			obj += self
+		else:
+			self.app = obj
 		self.indent = indent
 		self.start_pos = (0,0)
 
@@ -169,39 +165,7 @@ class Page(list):
 		obj.page = self
 		return self
 
-	def __isub__(self, obj):
-		if obj in self:
-			self.pop(self.index(obj))
-		return self
-
-	def tick(self):
-		objs = []
-		for obj in self:
-			if type(obj) == Line:
-				objs += obj
-			else:
-				objs.append(obj)
-
-		for event in self.app.events:
-			if event.type == MOUSEBUTTONDOWN:
-				for obj in objs:
-					if not obj.rect.collidepoint(event.pos):
-						if type(obj) == Input:
-							obj.active = False
-						continue
-
-					if type(obj) == Button:
-						obj.tick()
-
-					elif type(obj) == Input:
-						obj.active = True
-
-			elif event.type == KEYDOWN:
-				for obj in objs:
-					if type(obj) == Input and obj.active:
-						obj.tick(event)
-
-	def draw(self):
+	def update(self):
 		w, h = self.app.win.get_size()
 		w//=2
 		h//=2
@@ -214,7 +178,7 @@ class Page(list):
 		for obj in self:
 			x = w - obj.rect.width//2
 			obj.rect.topleft = (x,y)
-			obj.draw()
+			obj.update()
 			y += obj.rect.height
 			y += self.indent
 
@@ -233,66 +197,48 @@ class Pages(dict):
 		self[page.name] = page
 		return self
 
-	def __isub__(self, page):
-		if type(page) not in [Page, str]:
-			raise Exception('Удалить можно только по объекту или строке') 
-		if type(page) == str:
-			if page in self:
-				self.pop(page)
-		else:
-			if page.name in self:
-				self.pop(page.name)
-		return self
-
-	def tick(self):
+	def update(self):
 		if self.key not in self: return
-		self[self.key].tick()
-
-	def draw(self):
-		if self.key not in self: return
-		self[self.key].draw()
+		self[self.key].update()
 
 
 if __name__ == '__main__':
 	pygame.init()
 
 	app = ObjSpace()
-	app.win = display.set_mode((800, 450), RESIZABLE)
+	app.win = display.set_mode((800, 450))
 	display.set_caption('Тест менюшки')
 
 	app.pages = pages = Pages(app, 'main')
 
-	page = Page(app, 'main')
+	page = Page(pages, 'main')
 	page += Button('Локальная игра', func=lambda: pages('local'))
-	page += Button(' Сетевая игра ', func=lambda: pages('online'))
-	page += Button('  Настройки   ', func=lambda: pages('settings'))
-	page += Button('    Выход     ', func=lambda: exit())
-	pages += page
+	page += Button('Сетевая игра', func=lambda: pages('online'))
+	page += Button('Редактор')
+	page += Button('Настройки', func=lambda: pages('settings'))
+	page += Button('Выход', func=exit)
 
 	def run_game():
 		with open('main.py', 'r', encoding='utf-8') as file:
 			text = file.read()
 		exec(text, {})
-		app.win = display.set_mode((800, 450), RESIZABLE)
+		app.win = display.set_mode((800, 450))
 
-	page = Page(app, 'local')
+	page = Page(pages, 'local')
 	page += Label('*список с картами', (0,200,0))
-	page += Button('    Играть    ', func=run_game)
-	page += Button('    Назад     ', func=lambda: pages('main'))
-	pages += page
+	page += Button('Играть', func=run_game)
+	page += Button('Назад', func=lambda: pages('main'))
 
-	page = Page(app, 'online')
+	page = Page(pages, 'online')
 	line = Line()
 	page += line
 	line += Input(32, comment='Айпи')
 	line += Input(5, comment='Порт', chars='1234567890')
-	page += Button(' Подключиться ')
-	page += Button('    Назад     ', func=lambda: pages('main'))
-	pages += page
+	page += Button('Подключиться', func=lambda: print(line[0].text+':'+line[1].text))
+	page += Button('Назад', func=lambda: pages('main'))
 
-	page = Page(app, 'settings')
-	page += Button('    Назад     ', func=lambda: pages('main'))
-	pages += page
+	page = Page(pages, 'settings')
+	page += Button('Назад', func=lambda: pages('main'))
 
 	running = True
 	clock = pygame.time.Clock()
@@ -307,9 +253,7 @@ if __name__ == '__main__':
 				if event.key == K_ESCAPE:
 					running = False
 
-		app.pages.tick()
-
 		app.win.fill((30,30,30))
-		app.pages.draw()
+		pages.update()
 		display.flip()
 		clock.tick(60)

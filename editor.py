@@ -1,9 +1,11 @@
+import os
+
+# глобальные библиотеки
 import pygame
 from pygame import draw, display
 from pygame.locals import *
 
-import os
-
+# локальные библиотеки
 from ui import *
 
 pygame.init()
