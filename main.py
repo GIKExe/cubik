@@ -14,25 +14,21 @@ from utils import *
 
 pygame.init()
 
-app = ObjSpace()
+app = core.components
 app.win = pygame.display.set_mode((512,512))
 pygame.display.set_caption("Cubik by IvanExe")
-app.map = Map(app)
-app.camera = Camera(app, smooth=0.05)
 
-# player = Player(0,-16, 4, 3, 32)
-app.player = Player(app, (0, -16), 3, None, -4)
-		
-app.debug = DebugInfo(lambda: \
+
+Player((0, -16), 3, -4)
+DebugInfo(lambda: \
 	f"Позиция: {app.player.rect.x},{app.player.rect.y}\n" \
 	f"Смещение: {round(app.camera.offset[0])},{round(app.camera.offset[1])}\n" \
-	f"Эффекты: {tuple(app.player.effects.keys())}\n" \
+	f"Эффекты: {[(k,d['time']) for k,d in app.player.effects.items()]}\n" \
 	f"Спавн: {app.player.spawn_pos}"
 )
+Camera(smooth=0.05)
+Map()
 
-app.camera += app.player
-app.camera += app.debug
-		
 
 with open('modloader.py', 'r', encoding='utf-8') as file:
 	text = file.read()
@@ -83,14 +79,12 @@ while running:
 			elif event.key == K_ESCAPE:
 				running = False
 
-	app.camera.draw()
+	app.player.tick()
 
 	if app.player.rect.y > 512:
 		app.player.respawn()
 
+	app.camera.draw()
 	app.camera.offset_lerp(app.player.rect.center)
-
 	display.flip()
 	clock.tick(60)
-
-pygame.quit()

@@ -34,6 +34,7 @@
 # 	@bottom.setter
 # 	def bottom(self, value): self.top = value - self.height
 
+import re
 import time
 from threading import Thread
 
@@ -46,40 +47,89 @@ from pygame.locals import *
 from utils import *
 
 
-class Base:
-	rect = None
-	def draw(self, *args, **kwargs): pass
-	def tick(self, *args, **kwargs): pass
+class PythonData(dict):
+	def __call__(self, name, value=None):
+		if value is None:
+			return name in self
+		else:
+			self[name] = value
+
+	def __getattr__(self, name):
+		if name in self: return self[name]
+
+	def __setattr__(self, name, value):
+		self[name] = value
 
 
+components = PythonData()
+components_wait = PythonData()
+class component:
+	def __init__(self, id=None, req=[]):
+		if type(id) == type:
+			raise Exception('используй скобки для декоратора')
+		self.id = id
+		self.req = req
+
+	def check_req(self):
+		# проверяем наличие нашего компонента в списках других компонентов
+		for id in list(components_wait.keys()):
+			req, cls, args, kwargs = components_wait[id]
+			for name in req:
+				if name in components:
+					req.pop(req.index(name))
+			if not req:
+				del components_wait[id]
+				components(id, cls(components, *args, **kwargs))
+				self.check_req()
+
+	def __call__(self, cls):
+		self.cls = cls
+		self.id = (self.id or re.findall(r"\w+(?='>)", str(cls))[0]).lower()
+
+		def wrapper(*args, **kwargs):
+			# если нет компонентов в списке, то будем их ждать
+			for id in self.req:
+				if not components(id):
+					return components_wait(self.id, [self.req, self.cls, args, kwargs])
+
+			# иначе добавляем в список компонентов
+			components(self.id, self.cls(components, *args, **kwargs))
+			self.check_req()
+
+		return wrapper
+
+
+@component('debug', req=['camera', 'player'])
 class DebugInfo:
-	def __init__(self, info):
+	def __init__(self, app, info):
+		self.app = app
 		self.rect = None
 		self.show = False
 		self.font = font("Consolas", 16)
 		self.info = info
 
-	def tick(*args, **kwargs):
-		pass
+	def tick(*args, **kwargs): pass
 
-	def draw(self, camera, offset):
-		if self.show:
-			lines = self.info().split("\n")
-			y = 5
-			for text in lines:
-				surf = self.font.render(text, True, (250,250,250))
-				camera.win.blit(surf,(5,y))
-				y += surf.get_height()
-			draw.line(camera.win,(250,0,0),(256,0),(256,512))
-			draw.line(camera.win,(250,0,0),(512,256),(0,256))
+	def draw(self):
+		if not self.show: return
+		win = self.app.camera.win
+
+		lines = self.info().split("\n")
+		y = 5
+		for text in lines:
+			surf = self.font.render(text, True, (250,250,250))
+			win.blit(surf,(5,y))
+			y += surf.get_height()
+		draw.line(win, (250,0,0),(256,0),(256,512))
+		draw.line(win, (250,0,0),(512,256),(0,256))
 
 
+@component(req=['camera', 'map'])
 class Player:
-	def __init__(self, app, pos, speed, gravity, jump_power):
+	def __init__(self, app, pos, speed, jump_power):
 		self.app = app
 		self.rect = Rect(*pos,16,16)
 		self.moving = [0,0]
-		# self.gravity = gravity
 		
 		self.jump_power = jump_power
 		self.spawn_pos = tuple(pos)
@@ -91,15 +141,27 @@ class Player:
 		self.is_jump = False
 		self.on_ground = False
 
+	def effect(self, name, time=None, func=lambda: 0):
+		if time is None:
+			return name in self.effects
+		else:
+			self.effects[name] = {
+				'time':int(time * 60), # 60=fps
+				'func':func
+			} 
+
 	def respawn(self):
 		self.spx = 0
 		self.spy = 0
 		self.rect.topleft = self.spawn_pos
+		self.effects = {}
 
-	def draw(self, camera, offset):
+	def draw(self):
+		offset = self.app.camera.offset
+		win = self.app.camera.win
+
 		draw.rect(
-			camera.win, 
-			(200,200,200),
+			win, (200,200,200),
 			(
 				self.rect.x+offset[0],
 				self.rect.y+offset[1],
@@ -115,24 +177,24 @@ class Player:
 				collided.append(block)
 		return collided
 
-	def tick(self, camera):
+	def tick(self):
+		# обновление эффектов
+		for name in tuple(self.effects.keys()):
+			if self.effects[name]['time'] <= 0:
+				self.effects.pop(name)['func']()
+			else:
+				self.effects[name]['time'] -= 1
+
 		# влияние гравитации на скорость
 		if self.is_jump and (self.spy >= -0.5):
 			self.is_jump = False
 
 		key = pygame.key.get_pressed()
-		if 'полёт' in self.effects:
+		if self.effect('полёт'):
 			self.spy = (key[K_s] - key[K_w]) * self.speed
 		else:
 			if self.spy < 10:
 				self.spy += 1 / (abs(self.spy)+1) ** 1.7
-
-			# if key[K_SPACE]:
-			# 	self.rect.y += 2
-			# 	collided = self.get_collided()
-			# 	if len(collided) > 0:
-			# 		self.spy = self.jump_power
-			# 	self.rect.y -= 2
 
 			if key[K_SPACE] and self.on_ground:
 				self.rect.y += 2
@@ -168,6 +230,7 @@ class Player:
 		#===========================================
 
 
+@component()
 class Map:
 	def __init__(self, app, diagonally=True):
 		self.app = app
@@ -202,35 +265,17 @@ class Map:
 		return res
 
 
+@component(req=['map'])
 class Camera:
 	def __init__(self, app, background=(25,25,25), smooth=0.125):
 		self.app = app
 		self.win = app.win
+		self.map = app.map
 
 		width, height = self.win.get_size()
-		# self.offset = [256,256]
 		self.offset = [width//2, height//2]
-		self.objs = []
 		self.background = background
 		self.smooth = smooth
-
-		# временное имя
-		self.block_table = {}
-
-	def collide(self, a):
-		for b in list(self.app.map.data.values()):
-			if a.rect.colliderect(b.rect):
-				return b
-		return None
-
-	def __iadd__(self, obj):
-		self.objs.append(obj)
-		return self
-
-	def add_block(self, id, *args, **kwargs):
-		block = self.block_table[id](*args, **kwargs)
-		self.objs.append(block)
-		return block
 
 	def draw(self):
 		self.win.fill(self.background)
@@ -244,25 +289,13 @@ class Camera:
 				obj.draw(self, self.offset)
 			obj.tick(self)
 
-		for obj in self.objs:
-			if obj.rect == None or ((obj.rect.right+self.offset[0] > 0) and \
-					(obj.rect.x+self.offset[0] < self.win.get_width()) and \
-					(obj.rect.bottom+self.offset[1] > 0) and \
-					(obj.rect.y+self.offset[1] < self.win.get_height())):
-				obj.draw(self, self.offset)
-			obj.tick(self)
-
-		draw.rect(
-			self.win, (200,0,200), (self.offset[0], self.offset[1], 16, 16), 2
-		)
+		self.app.player.draw()
+		self.app.debug.draw()
+		
+		draw.rect(self.win, (200,0,200), (self.offset[0], self.offset[1], 16, 16), 2)
 
 	def offset_lerp(self, pos):
 		width, height = self.win.get_size()
-
-		# self.offset = [
-		# 	lerp(self.offset[0],256-pos[0],self.smooth),
-		# 	lerp(self.offset[1],256-pos[1],self.smooth)
-		# ]
 
 		self.offset = [
 			lerp(self.offset[0], width//2-pos[0], self.smooth),

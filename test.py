@@ -1,49 +1,156 @@
-import requests, time
+# import re 
 
-def email_finder(nick):
-    rawlist, newlist = [], []
+# class mod:
+# 	class reg:
+# 		def block(self, *args, **kwargs):
+# 			print(self)
+# 			def _block(cls, id=None, name=None):
+# 				id = (id or re.findall(r"\w+(?='>)", str(cls))[0]).lower().replace(' ', '_')
+# 				name = name or id
+# 				print(f'регистрирую блок {id} под названием: {name}')
 
-    # Делаем запрос на гитхаб, в запрос подставляем ник из входящего сообщения
+# 			if len(args) > 0 and type(args[0]) == type:
+# 				# регистрация блока по имени его класса
+# 				cls = args[0]
+# 				_block(cls)
+# 				return cls
 
-    url = f'https://api.github.com/users/{nick}/events/public'
-    r = requests.get(url)
+# 			else:
+# 				def _cls(cls):
+# 					_block(cls, *args, **kwargs)
+# 					return cls
+# 				return _cls
 
-    # Проверка существования адреса
-    # Если пользователь найден - идем дальше по циклу, иначе выходим
+# reg = mod.reg()
 
-    if r.status_code == 200:
-        print('status 200 - OK')
+# @reg.block(name='Super Block')
+# class Test:
+# 	def __init__(self, name):
+# 		print(name)
 
-        # Если пользователь найден, но возвращается пустой массив, то у юзера нет коммитов
-        # Выходим из цикла с сообщением "Невозможно найти почту"
 
-        if not r.json():
-            return 'Пользователь найден. Невозможно найти email.'
+# Test(123)
 
-    elif url_status == 404:
-        return 'Юзер с таким ником не найден'
-    else:
-        return 'Неизвестная ошибка'
+# import re 
 
-    # Поиск и выгрузка коммитов
+# components = PythonData()
+# wait_components = PythonData()
 
-    for element in r.json():
-        if element['type'] == 'PushEvent':
-            for commit in element['payload']['commits']:
-            
-                # Наполняем список всеми почтами из коммитов пользователя
-                email = commit['author']['email']
-                rawlist.append(email)
-    f_list = 'Найдены электронные ящики: \n'
 
-    # Удаляем повторы из списка и форматируем новый список
+# def my_decorator(*args, **kwargs):
+# 	def decorator(func):
+# 		def wrapper(*args, **kwargs):
+# 			# Код, выполняющийся перед вызовом функции
+# 			print("До выполнения функции")
 
-    for i in rawlist:
-        if i not in newlist:
-            newlist.append(i)
-    for element in newlist:
-        f_list = f_list + element + '\n'
+# 			# Вызов функции с передачей аргументов
+# 			result = func(*args, **kwargs)
 
-    return f_list
+# 			# Код, выполняющийся после вызова функции
+# 			print("После выполнения функции")
 
-print(email_finder('MeexReay'))
+# 			return result
+
+# 		return wrapper
+
+# 	if callable(param):
+# 		return decorator(param)
+# 	else:
+# 		return decorator
+		
+
+# def component(*args, **kwargs):
+# 	def _decorator(cls, id=None, req=[], *cls_args, **cls_kwargs):
+# 		id = (id or re.findall(r"\w+(?='>)", str(cls))[0]).lower()
+# 		for name in req:
+# 			if not components(name):
+# 				wait_components(id, [req, [cls, cls_args, cls_kwargs]])
+# 				return
+
+# 		print(cls_args)
+# 		components(id, cls(components, *cls_args, **cls_kwargs))
+# 		for id2, data in list(wait_components.items()):
+# 			req = data[0]
+# 			if id in req:
+# 				req.pop(req.index(id))
+# 			if len(req) == 0:
+# 				cls, cls_args, cls_kwargs = data[1]
+# 				components(id2, cls(components, *cls_args, **cls_kwargs))
+# 				del wait_components[id2]
+
+
+# 	if len(args) == 1 and type(args[0]) == type:
+# 		cls = args[0]
+# 		def _get_args(*cls_args, **cls_kwargs):
+# 			_decorator(cls, cls_args=cls_args, cls_kwargs=cls_kwargs)
+# 		return _get_args
+# 	else:
+# 		def _get_cls(cls):
+# 			def _get_args(*cls_args, **cls_kwargs):
+# 				return _decorator(cls, *args, cls_args=cls_args, cls_kwargs=cls_kwargs, **kwargs)
+# 			return _get_args
+# 		return _get_cls
+
+
+# @component(req=('test2'))
+# class Test:
+# 	def __init__(self, app, name):
+# 		self.app = app
+# 		print(name)
+
+
+# Test(123)
+
+
+# @component()
+# class Test2:
+# 	def __init__(self, app, name):
+# 		self.app = app
+# 		print(name)
+
+
+# Test2(321)
+
+# import pickle
+
+# class MapFile(dict):
+# 	def __init__(self, mf=None):
+# 		self.version = (0,0,0)
+# 		self.name = None
+# 		self.size = (0,0)
+# 		self.data = b''
+# 		self.metadata = []
+
+# 		if type(mf) is dict:
+# 			super().__init__(**mf)
+
+# 	def __getattr__(self, name):
+# 		if name in self: return self[name]
+
+# 	def __setattr__(self, name, value):
+# 		self[name] = value
+
+
+# def save_map(path, mf):
+# 	if not path.endswith('.pickle'):
+# 		path += '.pickle'
+# 	data = pickle.dumps(dict(mf))
+# 	with open(path, 'wb') as file:
+# 		file.write(data)
+
+# def load_map(path):
+# 	if not path.endswith('.pickle'):
+# 		path += '.pickle'
+# 	with open(path, 'rb') as file:
+# 		data = file.read()
+# 	return MapFile(pickle.loads(data))
+
+
+# mf = MapFile()
+# mf.size = (5,3)
+# mf.data = bytes([0]*10) + bytes([255,1, 1, 1, 1, 255,2])
+# mf.metadata.append({'teleport_to': (4,0)})
+# mf.metadata.append({'teleport_to': (-4,0)})
+
+# save_map('test.map', mf)
+
