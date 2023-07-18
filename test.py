@@ -211,8 +211,7 @@ class Map(PythonData):
 # with open('maps/test.pickle', 'rb') as file:
 # 	data = pickle.load(file)
 
-# data['palette'][0] = 'block'
-# data['palette'].pop(251)
+# data['center'] = (0,0)
 
 # with open('maps/test.pickle', 'wb') as file:
 # 	pickle.dump(data, file)

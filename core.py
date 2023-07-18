@@ -213,6 +213,50 @@ class Map(PythonData):
 
 		return res
 
+	def save(self):
+		min_x = 0
+		max_x = 0
+		min_y = 0
+		max_y = 0
+		for pos in self.map:
+			x,y = pos
+			if x < min_x:
+				min_x = x
+			elif x > max_x:
+				max_x = x
+
+			if y < min_y:
+				min_y = y
+			elif y > max_y:
+				max_y = y
+
+		size = (max_x+abs(min_x)+1, max_y+abs(min_y)+1)
+		data = {
+			'version': self.version,
+			'name': self.name,
+			'size': size,
+			'data': b'',
+			'metadata': [],
+			'palette': {i:name for i,name in enumerate(self.table.keys())},
+			'center': self.center
+		}
+
+		cls_list = list(self.table.values())
+		# for block in self.map.values():
+		# 	print(block, cls_list.index(type(block)))
+
+		for y in range(min_y, max_y+1):
+			for x in range(min_x, max_x+1):
+				pos = (x,y)
+				if pos in self.map:
+					block = self.map[pos]
+					data['data'] += bytes([cls_list.index(type(block))+1])
+				else:
+					data['data'] += bytes([0])
+
+		with open('maps/'+self.name+'.pickle', 'wb') as file:
+			pickle.dump(data, file)
+
 	def load(self, name):
 		filename = name + '.pickle'
 
@@ -227,11 +271,12 @@ class Map(PythonData):
 			data = pickle.load(file)
 		super().__init__(data)
 
-		for name in ['version', 'name', 'size', 'data', 'metadata', 'palette']:
+		for name in ['version', 'name', 'size', 'data', 'metadata', 'palette', 'center']:
 			if not self(name): raise Exception(f'Файл {filename} повреждён, нету переменной {name}')
 
 		ox = int(self.size[0] // 2)
 		oy = int(self.size[1] // 2)
+		cx, cy = self.center
 		index = 0
 		index_block = 0
 
@@ -268,7 +313,13 @@ class Map(PythonData):
 						num = data['id']
 
 				id = self.palette[num - 1]
-				pos = ( int(index_block % self.size[0])-ox, int(index_block // self.size[0])-oy )
+				pos = (
+					int(index_block % self.size[0]) - ox - cx, 
+					int(index_block // self.size[0]) - oy - cy
+
+					# int(index_block % self.size[0]) - ox, 
+					# int(index_block // self.size[0]) - oy
+				)
 				self.add_block(id, pos)
 
 			index += 1
@@ -294,8 +345,12 @@ class Camera:
 		x = int(self.app.player.rect.x // 16)
 		y = int(self.app.player.rect.y // 16)
 
-		for ix in range(-15-2,16+2):
-			for iy in range(-15-2,16+2):
+		w,h = self.app.win.get_size()
+		w = int((int(w//16)+1)//2)+11
+		h = int((int(h//16)+1)//2)+11
+
+		for ix in range(-w,w+1):
+			for iy in range(-h,h+1):
 				pos = (x+ix, y+iy)
 				if pos not in self.app.map.map: continue
 				self.app.map.map[pos].draw()

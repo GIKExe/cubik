@@ -53,11 +53,11 @@ class Home(Block):
 
 
 @mod.reg.block
-class Error(Block):
-	pass
-
-
-@mod.reg.block
 class Fly(Block):
 	def on_collide(self, player):
 		player.effect('полёт', 60)
+
+
+@mod.reg.block
+class Error(Block):
+	pass

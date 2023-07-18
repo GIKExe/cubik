@@ -276,6 +276,18 @@ if __name__ == '__main__':
 	# =========================================================================
 	page = Page(pages, 'editor')
 
+	def run_editor():
+		path = pages.editor[0][1].text
+		if not path:
+			return
+		filename = path.split('/')[-1]
+		name = filename.split('.')[0]
+		with open('editor.py', 'r', encoding='utf-8') as file:
+			text = file.read()
+		os.system('cls')
+		exec(text, {'map_name': name})
+		app.win = display.set_mode((800, 450))
+
 	def local():
 		path = chose_map()
 		if not path:
@@ -288,7 +300,7 @@ if __name__ == '__main__':
 	line += Label(None, (200,0,0))
 
 	page += Button('Выбрать карту...', func=local)
-	page += Button('Редактировать')
+	page += Button('Редактировать', func=run_editor)
 	page += Button('Назад', func=back)
 
 	# =========================================================================
