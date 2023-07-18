@@ -1,43 +1,9 @@
 
-# class Rect:
-# 	def __init__(self, pos, size):
-# 		self.pos = list(pos)
-# 		self.size = list(size)
-
-# 	@property
-# 	def left(self): return self.pos[0]
-# 	@left.setter
-# 	def left(self, value): self.pos[0] = value
-
-# 	@property
-# 	def top(self): return self.pos[1]
-# 	@top.setter
-# 	def top(self, value): self.pos[1] = value
-
-# 	@property
-# 	def width(self): return self.size[0]
-# 	@width.setter
-# 	def width(self, value): self.size[0] = value
-
-# 	@property
-# 	def height(self): return self.size[1]
-# 	@height.setter
-# 	def height(self, value): self.size[1] = value
-
-# 	@property
-# 	def right(self): return self.left + self.width
-# 	@right.setter
-# 	def right(self, value): self.left = value - self.width
-
-# 	@property
-# 	def bottom(self): return self.top + self.height
-# 	@bottom.setter
-# 	def bottom(self, value): self.top = value - self.height
-
 import re
 import os
 import time
 from threading import Thread
+from datetime import datetime
 
 # глобальные библиотеки
 import pickle
@@ -47,20 +13,6 @@ from pygame.locals import *
 
 # локальные библиотеки
 from utils import *
-
-
-class PythonData(dict):
-	def __call__(self, name, value=None):
-		if value is None:
-			return name in self
-		else:
-			self[name] = value
-
-	def __getattr__(self, name):
-		if name in self: return self[name]
-
-	def __setattr__(self, name, value):
-		self[name] = value
 
 
 components = PythonData()

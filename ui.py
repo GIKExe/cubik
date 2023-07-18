@@ -1,3 +1,4 @@
+import os
 
 # глобальные библиотеки
 import pygame
@@ -25,7 +26,7 @@ class Label(Widget):
 		self.generate_image()
 
 	def generate_image(self):
-		image = self.font.render(self.text, True, self.color)
+		image = self.font.render(str(self.text), True, self.color)
 		w,h = image.get_size()
 		self.image = Surface((w+10, h+10), SRCALPHA)
 		if self.background:
@@ -130,10 +131,10 @@ class Line(list, Widget):
 
 	def __iadd__(self, obj):
 		if type(obj) == Line:
-			raise Exception('не, фигню не пиши')
+			raise Exception('не пиши фигню')
 		if obj.rect.height > self.rect.height:
 			self.rect.height = obj.rect.height
-		self.rect.width += obj.rect.width + self.indent
+		
 		self.append(obj)
 		obj.app = self.app
 		obj.page = self.page
@@ -141,11 +142,14 @@ class Line(list, Widget):
 
 	def update(self):
 		x = self.rect.x
+		self.rect.width = 0
 		for obj in self:
+			self.rect.width += obj.rect.width
 			obj.rect.topleft = (x, self.rect.y)
 			obj.update()
 			x += obj.rect.width
 			x += self.indent
+		self.rect.width += len(self) * self.indent
 
 
 class Page(list):
@@ -153,7 +157,7 @@ class Page(list):
 		self.name = name
 		if type(obj) == Pages:
 			self.app = obj.app
-			obj += self
+			obj[name] = self
 		else:
 			self.app = obj
 		self.indent = indent
@@ -183,7 +187,7 @@ class Page(list):
 			y += self.indent
 
 
-class Pages(dict):
+class Pages(PythonData):
 	def __init__(self, app, key=None):
 		self.app = app
 		self.key = key
@@ -191,54 +195,105 @@ class Pages(dict):
 	def __call__(self, key):
 		self.key = key
 
-	def __iadd__(self, page):
-		if type(page) != Page:
-			raise Exception('Хранить можно только страницы')
-		self[page.name] = page
-		return self
-
 	def update(self):
 		if self.key not in self: return
 		self[self.key].update()
 
+from tkinter import Tk, filedialog
 
 if __name__ == '__main__':
 	pygame.init()
 
-	app = ObjSpace()
+	app = PythonData()
 	app.win = display.set_mode((800, 450))
 	display.set_caption('Тест менюшки')
 
 	app.pages = pages = Pages(app, 'main')
 
+	def chose_map():
+		root = Tk()
+		root.withdraw()
+		filetypes = (
+			("Файл карты", "*.pickle"),
+			("Все файлы", "*.*")
+		)
+		path = filedialog.askopenfilename(
+			title='Выбор карты',
+			initialdir="maps/",
+			filetypes=filetypes
+		)
+		root.destroy()
+		return path
+
+	# =========================================================================
 	page = Page(pages, 'main')
 	page += Button('Локальная игра', func=lambda: pages('local'))
 	page += Button('Сетевая игра', func=lambda: pages('online'))
-	page += Button('Редактор')
+	page += Button('Редактор', func=lambda: pages('editor'))
 	page += Button('Настройки', func=lambda: pages('settings'))
 	page += Button('Выход', func=exit)
+	back = lambda: pages('main')
+
+	# =========================================================================
+	page = Page(pages, 'local')
 
 	def run_game():
+		path = pages.local[0][1].text
+		if not path:
+			return
+		filename = path.split('/')[-1]
+		name = filename.split('.')[0]
 		with open('main.py', 'r', encoding='utf-8') as file:
 			text = file.read()
-		exec(text, {})
+		os.system('cls')
+		exec(text, {'map_name': name})
 		app.win = display.set_mode((800, 450))
 
-	page = Page(pages, 'local')
-	page += Label('*список с картами', (0,200,0))
-	page += Button('Играть', func=run_game)
-	page += Button('Назад', func=lambda: pages('main'))
+	def local():
+		path = chose_map()
+		if not path:
+			path = None
+		pages.local[0][1].text = path
 
+	line = Line()
+	page += line
+	line += Label('Выбранная карта:')
+	line += Label(None, (200,0,0))
+
+	page += Button('Выбрать карту...', func=local)
+	page += Button('Играть', func=run_game)
+	page += Button('Назад', func=back)
+
+	# =========================================================================
 	page = Page(pages, 'online')
 	line = Line()
 	page += line
 	line += Input(32, comment='Айпи')
 	line += Input(5, comment='Порт', chars='1234567890')
 	page += Button('Подключиться', func=lambda: print(line[0].text+':'+line[1].text))
-	page += Button('Назад', func=lambda: pages('main'))
+	page += Button('Назад', func=back)
 
+	# =========================================================================
+	page = Page(pages, 'editor')
+
+	def local():
+		path = chose_map()
+		if not path:
+			path = None
+		pages.editor[0][1].text = path
+
+	line = Line()
+	page += line
+	line += Label('Выбранная карта:')
+	line += Label(None, (200,0,0))
+
+	page += Button('Выбрать карту...', func=local)
+	page += Button('Редактировать')
+	page += Button('Назад', func=back)
+
+	# =========================================================================
 	page = Page(pages, 'settings')
-	page += Button('Назад', func=lambda: pages('main'))
+	page += Button('Назад', func=back)
 
 	running = True
 	clock = pygame.time.Clock()

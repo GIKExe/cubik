@@ -3,6 +3,7 @@ from datetime import datetime
 # глобальные библиотеки
 import pygame
 
+
 _print = print
 class Print:
 	def __init__(self, name=''):
@@ -14,9 +15,12 @@ class Print:
 		return _print(text, *args, **kwargs)
 
 
-class ObjSpace(dict):
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
+class PythonData(dict):
+	def __call__(self, name, value=None):
+		if value is None:
+			return name in self
+		else:
+			self[name] = value
 
 	def __getattr__(self, name):
 		if name in self: return self[name]
@@ -32,6 +36,3 @@ def font(name, size):
 	if size not in fonts[name]:
 		fonts[name][size] = pygame.font.SysFont(name, size)
 	return fonts[name][size]
-
-if __name__ == '__main__':
-	pass

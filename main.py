@@ -36,8 +36,10 @@ with open('modloader.py', 'r', encoding='utf-8') as file:
 	text = file.read()
 	exec(text, {'app':app})
 
-
-app.map.load('test')
+if 'map_name' in globals():
+	app.map.load(map_name)
+else:
+	app.map.load('default')
 
 running = True
 while running:
