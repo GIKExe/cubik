@@ -28,129 +28,191 @@
 # 	def __init__(self, name):
 # 		print(name)
 
-
 # Test(123)
 
-# import re 
+class PythonData(dict):
+	def __call__(self, name, value=None):
+		if value is None:
+			return name in self
+		else:
+			self[name] = value
 
-# components = PythonData()
-# wait_components = PythonData()
+	def __getattr__(self, name):
+		if name in self: return self[name]
 
+	def __setattr__(self, name, value):
+		self[name] = value
 
-# def my_decorator(*args, **kwargs):
-# 	def decorator(func):
-# 		def wrapper(*args, **kwargs):
-# 			# Код, выполняющийся перед вызовом функции
-# 			print("До выполнения функции")
-
-# 			# Вызов функции с передачей аргументов
-# 			result = func(*args, **kwargs)
-
-# 			# Код, выполняющийся после вызова функции
-# 			print("После выполнения функции")
-
-# 			return result
-
-# 		return wrapper
-
-# 	if callable(param):
-# 		return decorator(param)
-# 	else:
-# 		return decorator
-		
-
-# def component(*args, **kwargs):
-# 	def _decorator(cls, id=None, req=[], *cls_args, **cls_kwargs):
-# 		id = (id or re.findall(r"\w+(?='>)", str(cls))[0]).lower()
-# 		for name in req:
-# 			if not components(name):
-# 				wait_components(id, [req, [cls, cls_args, cls_kwargs]])
-# 				return
-
-# 		print(cls_args)
-# 		components(id, cls(components, *cls_args, **cls_kwargs))
-# 		for id2, data in list(wait_components.items()):
-# 			req = data[0]
-# 			if id in req:
-# 				req.pop(req.index(id))
-# 			if len(req) == 0:
-# 				cls, cls_args, cls_kwargs = data[1]
-# 				components(id2, cls(components, *cls_args, **cls_kwargs))
-# 				del wait_components[id2]
-
-
-# 	if len(args) == 1 and type(args[0]) == type:
-# 		cls = args[0]
-# 		def _get_args(*cls_args, **cls_kwargs):
-# 			_decorator(cls, cls_args=cls_args, cls_kwargs=cls_kwargs)
-# 		return _get_args
-# 	else:
-# 		def _get_cls(cls):
-# 			def _get_args(*cls_args, **cls_kwargs):
-# 				return _decorator(cls, *args, cls_args=cls_args, cls_kwargs=cls_kwargs, **kwargs)
-# 			return _get_args
-# 		return _get_cls
-
-
-# @component(req=('test2'))
-# class Test:
-# 	def __init__(self, app, name):
-# 		self.app = app
-# 		print(name)
-
-
-# Test(123)
+import os
+import pickle
 
 
 # @component()
-# class Test2:
-# 	def __init__(self, app, name):
-# 		self.app = app
-# 		print(name)
+class Map(PythonData):
+	def __init__(self, app):
+		self.app = app
+		self.table = {}
+		self.map = {}
+
+	def reg(self, name, cls):
+		self.table[name] = cls
+
+	def add_block(self, name, pos):
+		if name in self.table:
+			self.map[pos] = self.table[name](*pos)
+		else:
+			self.map[pos] = self.table['error'](*pos)
+
+	def get_neighbors(self, pos):
+		sposs = [(0,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1),(-1,0)]
+		x = int(pos[0] // 16)
+		y = int(pos[1] // 16)
+		res = {}
+
+		for spos in sposs:
+			sx, sy = spos
+			pos = (x+sx, y+sy)
+			if pos in self.map:
+				res[spos] = self.map[pos]
+
+		return res
+
+	def load(self, name):
+		filename = name + '.pickle'
+
+		if not os.path.isdir('maps'):
+			raise Exception(f'папка maps не существует')
+		if filename not in os.listdir('maps'):
+			raise Exception(f'Файл карты {filename} не найден')
+		if not os.path.isfile('maps/'+filename):
+			raise Exception(f'Путь maps/{filename} не является файлом')
+
+		with open('maps/'+filename, 'rb') as file:
+			data = pickle.load(file)
+		super().__init__(data)
+		
+		for name in ['version', 'name', 'size', 'data', 'metadata', 'palette']:
+			if not self(name): raise Exception(f'Файл {filename} повреждён, нету переменной {name}')
+		if self.name != name:
+			raise Exception('Файл повреждён, имя файла и карты не совпадают')
+
+		# подготовка к загрузке
+		ox = int(self.size[0] // 2)
+		oy = int(self.size[1] // 2)
+		index = 0
+		index_block = 0
+
+		# загрузка карты
+		while index < len(self.data):
+			num = self.data[index]
+			if num == 255:
+				index += 1
+				index_meta = int.from_bytes(self.data[index+1], byteorder='little')
+			elif num == 254:
+				index += 2
+				index_meta = int.from_bytes(self.data[index+1:index+3], byteorder='little')
+			elif num == 253:
+				index += 3
+				index_meta = int.from_bytes(self.data[index+1:index+4], byteorder='little')
+			elif num == 252:
+				index += 4
+				index_meta = int.from_bytes(self.data[index+1:index+5], byteorder='little')
+			elif num > 0:
+				index_meta = -1
+			else:
+				index_meta = None
+
+			if index_meta > -1:
+				data = self.metadata[index_meta]
+				num = data['id']
+
+			if index_meta != None:
+				id = self.palette[num]
+				pos = ( int(index_block % self.size[0])-ox, int(index_block // self.size[0])-oy )
+				self.add_block(id, pos)
+
+			index += 1
+			index_block += 1
+
+# перевод старых карт в новые
+# with open('maps/default.map', 'rb') as file:
+# 	fdata = file.read()
+
+# data = {
+# 	'version': (0,0,1),
+# 	'name': 'default',
+# 	'size': (29, 11),
+# 	'data': fdata,
+# 	'metadata': [],
+# 	'palette': {
+# 		0: 'block',
+# 		1: 'killer',
+# 		2: 'jump',
+# 		3: 'speed',
+# 		4: 'home',
+# 		5: 'fly',
+# 	}
+# }
+
+# with open('maps/default.pickle', 'wb') as file:
+# 	pickle.dump(data, file)
 
 
-# Test2(321)
-
-# import pickle
-
-# class MapFile(dict):
-# 	def __init__(self, mf=None):
-# 		self.version = (0,0,0)
-# 		self.name = None
-# 		self.size = (0,0)
-# 		self.data = b''
-# 		self.metadata = []
-
-# 		if type(mf) is dict:
-# 			super().__init__(**mf)
-
-# 	def __getattr__(self, name):
-# 		if name in self: return self[name]
-
-# 	def __setattr__(self, name, value):
-# 		self[name] = value
+# data = {
+# 	'version': (0,0,1),
+# 	'name': 'test',
+# 	'size': (1000, 1000),
+# 	'data': b'',
+# 	'metadata': [],
+# 	'palette': {i: 'block' for i in range(251)}
+# }
 
 
-# def save_map(path, mf):
-# 	if not path.endswith('.pickle'):
-# 		path += '.pickle'
-# 	data = pickle.dumps(dict(mf))
-# 	with open(path, 'wb') as file:
-# 		file.write(data)
+# import random
 
-# def load_map(path):
-# 	if not path.endswith('.pickle'):
-# 		path += '.pickle'
-# 	with open(path, 'rb') as file:
-# 		data = file.read()
-# 	return MapFile(pickle.loads(data))
+# counter = 0
+# _1 = 2**8
+# _2 = 2**16
+# _3 = 2**24
+# _4 = 2**32
+# for _ in range(1000**2):
+# 	if random.randint(0,99) < 50:
+# 		if random.randint(0,99) < 10:
+# 			if counter < _1:
+# 				data['data'] += bytes([255])+counter.to_bytes(1, byteorder='little')
+# 			elif counter < _2:
+# 				data['data'] += bytes([254])+counter.to_bytes(2, byteorder='little')
+# 			elif counter < _3:
+# 				data['data'] += bytes([253])+counter.to_bytes(3, byteorder='little')
+# 			elif counter < _4:
+# 				data['data'] += bytes([252])+counter.to_bytes(4, byteorder='little')
+# 			else:
+# 				raise Exception('переполнение байтов')
+
+# 			x = random.randint(-_2, _2)
+# 			y = random.randint(-_2, _2)
+# 			data['metadata'].append(
+# 				{'tp':(x,y), 'id':random.randint(1,251)}
+# 			)
+# 			counter += 1
+# 		else:
+# 			data['data'] += bytes([random.randint(1,251)])
+# 	else:
+# 		data['data'] += bytes([0])
 
 
-# mf = MapFile()
-# mf.size = (5,3)
-# mf.data = bytes([0]*10) + bytes([255,1, 1, 1, 1, 255,2])
-# mf.metadata.append({'teleport_to': (4,0)})
-# mf.metadata.append({'teleport_to': (-4,0)})
+# with open('maps/test.pickle', 'wb') as file:
+# 	pickle.dump(data, file)
 
-# save_map('test.map', mf)
 
+
+
+
+# with open('maps/test.pickle', 'rb') as file:
+# 	data = pickle.load(file)
+
+# data['palette'][0] = 'block'
+# data['palette'].pop(251)
+
+# with open('maps/test.pickle', 'wb') as file:
+# 	pickle.dump(data, file)

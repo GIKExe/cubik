@@ -35,10 +35,12 @@
 # 	def bottom(self, value): self.top = value - self.height
 
 import re
+import os
 import time
 from threading import Thread
 
 # глобальные библиотеки
+import pickle
 import pygame
 from pygame import draw, display, Rect
 from pygame.locals import *
@@ -231,38 +233,94 @@ class Player:
 
 
 @component()
-class Map:
-	def __init__(self, app, diagonally=True):
+class Map(PythonData):
+	def __init__(self, app):
 		self.app = app
 		self.table = {}
-		self.data = {}
-		if diagonally:
-			self.sposs = [(0,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1),(-1,0)]
-		else:
-			self.sposs = [(0,0),(0,1),(1,0),(0,-1),(-1,0)]
+		self.map = {}
 
 	def reg(self, name, cls):
 		self.table[name] = cls
 
 	def add_block(self, name, pos):
-		if name in self.table:
-			self.data[pos] = self.table[name](*pos)
-		else:
-			self.data[pos] = self.table['error'](*pos)
+		if name not in self.table:
+			name = 'error'
+		self.map[pos] = self.table[name](self.app, pos)
 
 	def get_neighbors(self, pos):
-		x, y = pos
-		x = int(x//16)
-		y = int(y//16)
+		sposs = [(0,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1),(-1,0)]
+		x = int(pos[0] // 16)
+		y = int(pos[1] // 16)
 		res = {}
 
-		for spos in self.sposs:
+		for spos in sposs:
 			sx, sy = spos
 			pos = (x+sx, y+sy)
-			if pos in self.data:
-				res[spos] = self.data[pos]
+			if pos in self.map:
+				res[spos] = self.map[pos]
 
 		return res
+
+	def load(self, name):
+		filename = name + '.pickle'
+
+		if not os.path.isdir('maps'):
+			raise Exception(f'папка maps не существует')
+		if filename not in os.listdir('maps'):
+			raise Exception(f'Файл карты {filename} не найден')
+		if not os.path.isfile('maps/'+filename):
+			raise Exception(f'Путь maps/{filename} не является файлом')
+
+		with open('maps/'+filename, 'rb') as file:
+			data = pickle.load(file)
+		super().__init__(data)
+
+		for name in ['version', 'name', 'size', 'data', 'metadata', 'palette']:
+			if not self(name): raise Exception(f'Файл {filename} повреждён, нету переменной {name}')
+
+		ox = int(self.size[0] // 2)
+		oy = int(self.size[1] // 2)
+		index = 0
+		index_block = 0
+
+		while index < len(self.data):
+			num = self.data[index]
+			if num == 255:
+				index += 1
+				index_meta = self.data[index+1]
+			elif num == 254:
+				index += 2
+				index_meta = int.from_bytes(self.data[index+1:index+3], byteorder='little')
+			elif num == 253:
+				index += 3
+				index_meta = int.from_bytes(self.data[index+1:index+4], byteorder='little')
+			elif num == 252:
+				index += 4
+				index_meta = int.from_bytes(self.data[index+1:index+5], byteorder='little')
+			elif num > 0:
+				index_meta = -1
+			else:
+				index_meta = None
+
+			if index_meta != None:
+				if index_meta > -1:
+					try:
+						data = self.metadata[index_meta]
+					except:
+						# print(len(self.metadata), index_meta)
+						# raise
+						index += 1
+						index_block += 1
+						continue
+					else:
+						num = data['id']
+
+				id = self.palette[num - 1]
+				pos = ( int(index_block % self.size[0])-ox, int(index_block // self.size[0])-oy )
+				self.add_block(id, pos)
+
+			index += 1
+			index_block += 1
 
 
 @component(req=['map'])
@@ -281,13 +339,14 @@ class Camera:
 		self.win.fill(self.background)
 
 		# отрисовка блоков из карты
-		for obj in list(self.app.map.data.values()):
-			if ((obj.rect.right+self.offset[0] > 0) and \
-					(obj.rect.x+self.offset[0] < self.win.get_width()) and \
-					(obj.rect.bottom+self.offset[1] > 0) and \
-					(obj.rect.y+self.offset[1] < self.win.get_height())):
-				obj.draw(self, self.offset)
-			obj.tick(self)
+		x = int(self.app.player.rect.x // 16)
+		y = int(self.app.player.rect.y // 16)
+
+		for ix in range(-15-2,16+2):
+			for iy in range(-15-2,16+2):
+				pos = (x+ix, y+iy)
+				if pos not in self.app.map.map: continue
+				self.app.map.map[pos].draw()
 
 		self.app.player.draw()
 		self.app.debug.draw()

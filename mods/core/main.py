@@ -9,16 +9,16 @@ from pygame import Rect
 class Block:
 	image = None
 
-	def __init__(self, x, y):
-		self.rect = Rect(x*16,y*16,16,16)
+	def __init__(self, app, pos):
+		self.app = app
+		self.rect = Rect(pos[0]*16,pos[1]*16,16,16)
 
-	def draw(self, camera, offset):
+	def draw(self):
 		if self.image is None: return
-		camera.win.blit(
-			self.image, (self.rect.x+offset[0], self.rect.y+offset[1])
+		self.app.win.blit(
+			self.image, (self.rect.x+self.app.camera.offset[0], self.rect.y+self.app.camera.offset[1])
 		)
 
-	def tick(*args, **kwargs): pass
 	def on_collide(*args, **kwargs): pass
 
 
